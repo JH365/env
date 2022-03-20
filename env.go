@@ -14,9 +14,28 @@ const (
 )
 
 var errWrongType = errors.New("[env] require a pointer points to a struct")
+var errWrongOption = errors.New("[env] more than 1 option has been configured")
+
+type Option struct {
+	TagName string
+	Prefix  string
+}
 
 // Parse is the main entry for this library
-func Parse(v interface{}) error {
+func Parse(v interface{}, opts ...Option) error {
+
+	opt := Option{
+		TagName: _TagName,
+	}
+
+	if len(opts) > 0 {
+		if opts[0].Prefix != "" {
+			opt.Prefix = opts[0].Prefix
+		}
+		if opts[0].TagName != "" {
+			opt.TagName = opts[0].TagName
+		}
+	}
 
 	ptr := reflect.ValueOf(v)
 	if ptr.Kind() != reflect.Ptr {
@@ -28,11 +47,11 @@ func Parse(v interface{}) error {
 		return errWrongType
 	}
 
-	return doParse(val)
+	return doParse(val, opt)
 }
 
 // doParse parses the env variables based on struct field tag
-func doParse(refVal reflect.Value) error {
+func doParse(refVal reflect.Value, opt Option) error {
 
 	refType := refVal.Type()
 
@@ -51,13 +70,13 @@ func doParse(refVal reflect.Value) error {
 		}
 
 		if refFieldValue.Kind() == reflect.Struct {
-			if err := doParse(refFieldValue); err != nil {
+			if err := doParse(refFieldValue, opt); err != nil {
 				return err
 			}
 			continue
 		}
 
-		envVal := getEnvByTag(refFieldType)
+		envVal := getEnvByTag(refFieldType, opt)
 		if envVal == "" {
 			continue
 		}
@@ -73,12 +92,13 @@ func doParse(refVal reflect.Value) error {
 
 // getEnvByTag fetch env value based on field tag
 // TODO: Adding support for more configurations like "required", "customized parse function", etc.
-func getEnvByTag(refField reflect.StructField) string {
+func getEnvByTag(refField reflect.StructField, opt Option) string {
 
-	envName := refField.Tag.Get(_TagName)
+	envName := refField.Tag.Get(opt.TagName)
 	if envName == "" {
 		return ""
 	}
+	envName = opt.Prefix + envName
 
 	if envVal, ok := os.LookupEnv(envName); ok {
 		return envVal
