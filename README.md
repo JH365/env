@@ -11,6 +11,12 @@ type configs struct {
 }
 
 func main() {
+    // config the tag name and prefix for env variable name
+    opt := env.Option{
+		TagName: "env",
+		Prefix:  "T_",
+	}
+
     cfgs := configs{}
 
     if err := env.Parse(&cfgs); err != nil {
